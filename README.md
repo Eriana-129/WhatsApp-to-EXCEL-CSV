@@ -1,5 +1,7 @@
 # Convierte conversaciones de WhatsApp (.txt) a archivos Excel (.xlsx) y CSV | Convert WhatsApp conversations (.txt) to Excel (.xlsx) and CSV files
 
+![Banner](./whatsapp.jpg)
+
 ## Introducción / Introduction
 
 De acuerdo con IBM, el Análisis de Sentimientos, puede definirse como el proceso de analizar grandes volúmenes de texto para determinar si expresa un sentimiento positivo, un sentimiento negativo o un sentimiento neutro (Disponible en https://www.ibm.com/mx-es/topics/sentiment-analysis). Así mismo, se refiere al estudio de las emociones y opiniones expresadas en mensajes digitales, almacenadas en archivos digitales (Disponible en https://www.unglobalpulse.org/wp-content/uploads/2023/12/e-analyticsguide2019.pdf). 
