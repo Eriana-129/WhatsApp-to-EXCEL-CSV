@@ -5,71 +5,81 @@ import re
 from openpyxl import Workbook
 
 def whatsapp_to_csv_xlsx(input_filename, output_csv, output_xlsx):
-    """Args:
-        input_filename: Nombre del archivo de chat de WhatsApp (formato txt, UTF-8). File Name from WhatsApp in txt
-        output_csv: Nombre del archivo CSV de salida. CSV output file 
-        output_xlsx: Nombre del archivo XLSX de salida. EXCEL output file in xlsx
-    """
-
+    """Convertir un chat de WhatsApp a formato CSV y Excel."""
     with open(input_filename, 'r', encoding='utf-8-sig') as f_in, \
             open(output_csv, 'w', encoding='utf-8-sig', newline='') as f_out_csv:
 
         writer = csv.writer(f_out_csv)
 
-        # Escribe el encabezado del CSV / Headers in the CSV
+        # Escribe el encabezado del CSV
         writer.writerow(['Fecha', 'Hora', 'Remitente', 'Mensaje'])
 
-        # Crear el archivo XLSX / Headers in the EXCEL file
+        # Crear el archivo XLSX
         wb = Workbook()
         ws = wb.active
         ws.title = "WhatsApp Chat"
         ws.append(['Fecha', 'Hora', 'Remitente', 'Mensaje'])
 
-        # Contar líneas en el archivo para mostrar el progreso
-        num_lines = sum(1 for line in f_in)
-        f_in.seek(0)  # Volver al principio del archivo
+        # Expresión regular para detectar nuevos mensajes
+        message_pattern = re.compile(r"^\[(\d{1,2}/\d{1,2}/\d{2,4}), (\d{1,2}:\d{2}(:\d{2})?\s?[ap]\.?\s?m\.?)\] (.+?): (.*)$")
+        system_message_pattern = re.compile(r"^\[(\d{1,2}/\d{1,2}/\d{2,4}), (\d{1,2}:\d{2}(:\d{2})?\s?[ap]\.?\s?m\.?)\] (.+)$")
 
-        # Mostrar progreso utilizando tqdm
+        current_date = current_time = sender = None
         message_buffer = []
-        date = time = sender = ''
-        date_time_sender_pattern = re.compile(r"^\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2}\s?[ap]\.?\s?m\.? - .+?: ")
 
-        for line in tqdm(f_in, total=num_lines, desc="Procesando"):
+        # Contar líneas para mostrar progreso
+        lines = f_in.readlines()
+        for line in tqdm(lines, total=len(lines), desc="Procesando"):
             line = line.strip()
-            if line:  # Ignorar líneas vacías
-                if date_time_sender_pattern.match(line):  # Nueva fecha, hora y remitente
-                    if message_buffer:
-                        # Procesar el mensaje anterior
-                        date, time, sender, message = process_message(message_buffer, date, time, sender)
-                        writer.writerow([date, time, sender, message])
-                        ws.append([date, time, sender, message])
-                        message_buffer = []
-                    parts = line.split(' - ', 1)
-                    date_time, sender_message = parts
-                    date, time = date_time.split(', ')
-                    sender, message = sender_message.split(': ', 1)
-                    message_buffer.append(message)
-                else:
-                    # Continuación de un mensaje anterior
-                    message_buffer.append(line)
 
-        # Procesar el último mensaje
+            # Eliminar caracteres no imprimibles (como \u200e) de la línea
+            line = line.replace('\u200e', '')
+
+            if not line:
+                continue
+
+            # Si coincide con un mensaje nuevo
+            match = message_pattern.match(line)
+            system_match = system_message_pattern.match(line)
+
+            if match:
+                # Guardar el mensaje anterior antes de procesar el nuevo
+                if message_buffer:
+                    save_message(writer, ws, current_date, current_time, sender, message_buffer)
+                    message_buffer = []
+
+                # Extraer información del nuevo mensaje
+                current_date, current_time, _, sender, message = match.groups()
+                message_buffer.append(message)
+            elif system_match:
+                # Mensaje del sistema
+                if message_buffer:
+                    save_message(writer, ws, current_date, current_time, sender, message_buffer)
+                    message_buffer = []
+
+                current_date, current_time, _, message = system_match.groups()
+                sender = "Sistema"
+                message_buffer.append(message)
+            else:
+                # Línea que pertenece al mensaje anterior (multilinea)
+                message_buffer.append(line)
+
+        # Guardar el último mensaje
         if message_buffer:
-            date, time, sender, message = process_message(message_buffer, date, time, sender)
-            writer.writerow([date, time, sender, message])
-            ws.append([date, time, sender, message])
+            save_message(writer, ws, current_date, current_time, sender, message_buffer)
 
         # Guardar el archivo XLSX
         wb.save(output_xlsx)
 
-def process_message(message_buffer, date, time, sender):
-    """Procesa un mensaje que puede contener varias líneas"""
+def save_message(writer, ws, date, time, sender, message_buffer):
+    """Guardar un mensaje en el CSV y Excel."""
     message = '\n'.join(message_buffer).replace(" ", " ")
-    return date, time, sender, message
+    writer.writerow([date, time, sender, message])
+    ws.append([date, time, sender, message])
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Uso / Use: python whatsapp_converter.py <input.txt> <output.csv> <output.xlsx>")
+        print("Uso: python whatsapp_converter.py <input.txt> <output.csv> <output.xlsx>")
         sys.exit(1)
     
     input_filename = sys.argv[1]
